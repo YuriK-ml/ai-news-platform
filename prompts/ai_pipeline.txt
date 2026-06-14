@@ -1,0 +1,5 @@
+# ai_pipeline.txt
+#
+# Domain: ai
+# Purpose: Single-step editorial decision + Russian Telegram-ready rewrite.
+

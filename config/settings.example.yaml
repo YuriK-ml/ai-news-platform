@@ -1,0 +1,62 @@
+# Example configuration for ai-news-platform.
+# Domains and sources are declarative: add new domains/sources without changing code.
+
+app:
+  service_name: "ai-news-platform"
+
+logging:
+  format: "json"
+  level: "INFO"
+
+storage:
+  database_path_env: "DATABASE_PATH"
+
+ingestion:
+  max_article_age_hours: 24
+
+publishing:
+  max_articles_per_run: 2
+  default_publisher: "telegram"
+  telegram:
+    bot_token_env: "TELEGRAM_BOT_TOKEN"
+    parse_mode: "HTML"
+    disable_web_page_preview: false
+llm:
+  enabled: true
+  prompts_dir: "prompts"
+  default_target_language: "ru"
+  max_articles_per_run: 100
+  # LLM provider/model integration intentionally deferred.
+
+domains:
+  - id: "football"
+    name: "Football"
+    telegram:
+      channel_id: "-1003961481668"
+    llm:
+      enabled: true
+      target_language: "ru"
+      pipeline_prompt: "football_pipeline.txt"
+    sources:
+      - id: "bbc_sport_football"
+        type: "rss"
+        name: "BBC Sport Football"
+        url: "https://feeds.bbci.co.uk/sport/football/rss.xml"
+      - id: "espn_soccer"
+        type: "rss"
+        name: "ESPN Soccer"
+        url: "https://www.espn.com/espn/rss/soccer/news"
+      - id: "sky_sports_football"
+        type: "rss"
+        name: "Sky Sports Football"
+        url: "https://www.skysports.com/rss/12040"
+
+  - id: "ai"
+    name: "AI"
+    telegram:
+      channel_id: "@your_ai_channel"
+    llm:
+      enabled: false
+      target_language: "ru"
+      pipeline_prompt: "ai_pipeline.txt"
+    sources: []

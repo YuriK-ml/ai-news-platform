@@ -1,0 +1,5 @@
+# finance_pipeline.txt
+#
+# Domain: finance
+# Purpose: Single-step editorial decision + Russian Telegram-ready rewrite.
+
