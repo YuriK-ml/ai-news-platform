@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -53,6 +54,7 @@ class TelegramPublishingConfig(BaseModel):
 
 class PublishingConfig(BaseModel):
     max_articles_per_run: int = 2
+    interval_seconds: int = 60
     default_publisher: Literal["telegram"] = "telegram"
     telegram: TelegramPublishingConfig = Field(default_factory=TelegramPublishingConfig)
 
@@ -68,6 +70,18 @@ class LLMConfig(BaseModel):
     prompts_dir: str = "prompts"
     default_target_language: str = "ru"
     max_articles_per_run: int = 100
+    batch_size: int = 20
+    reasoning_effort: Literal["minimal", "low", "medium", "high"] = "minimal"
+    pricing: "LLMPricingConfig" = Field(default_factory=lambda: LLMPricingConfig())
+
+
+class LLMModelPricing(BaseModel):
+    input_price_per_million_usd: Decimal = Decimal("0")
+    output_price_per_million_usd: Decimal = Decimal("0")
+
+
+class LLMPricingConfig(BaseModel):
+    models: dict[str, LLMModelPricing] = Field(default_factory=dict)
 
 
 class DomainLLMConfig(BaseModel):

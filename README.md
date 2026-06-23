@@ -35,17 +35,17 @@ The current working domain is football news. The architecture supports adding ad
 
 ```text
 RSS sources
-    ↓
+    ->
 Article normalization
-    ↓
+    ->
 SQLite storage and deduplication
-    ↓
+    ->
 LLM editorial processing
-    ↓
+    ->
 REJECTED or READY
-    ↓
+    ->
 Telegram publishing
-    ↓
+    ->
 PUBLISHED
 ```
 
@@ -90,6 +90,19 @@ TELEGRAM_BOT_TOKEN=
 DATABASE_PATH=./data/app.sqlite3
 ```
 
+Optional: configure token pricing in `config/settings.example.yaml` under `llm.pricing.models`:
+
+```yaml
+llm:
+  pricing:
+    models:
+      gpt-5.2:
+        input_price_per_million_usd: 0
+        output_price_per_million_usd: 0
+```
+
+When pricing is set (non-zero), the runner logs per-batch and per-run usage/cost events: `llm_batch_usage`, `llm_stage_usage_summary`.
+
 ## Run
 
 ```powershell
@@ -98,15 +111,27 @@ ai-news-platform ingest --config config/settings.example.yaml --domain football
 
 Repeated execution processes only newly discovered articles. Previously stored URLs are recognized as duplicates.
 
+Publishing is handled by a separate worker:
+
+```powershell
+ai-news-platform publish-worker --config config/settings.example.yaml --domain football
+```
+
+To publish a single article and exit:
+
+```powershell
+ai-news-platform publish-once --config config/settings.example.yaml --domain football
+```
+
 ## Current Deployment Model
 
-The application is designed to run as a scheduled background CLI process. A web API is not required for the current single-process publishing workflow.
+The application is designed to run as a scheduled background CLI process. A web API is not required.
 
 For server deployment, the command can be triggered periodically using cron or a systemd timer.
 
 ## Planned Improvements
 
-* Batch processing of multiple articles in a single LLM request
+* Batch processing improvements (prompt/robustness)
 * Scheduled server deployment
 * Additional news domains
 * Extended operational monitoring

@@ -9,6 +9,7 @@ import structlog
 from ai_news_platform.logging.setup import configure_logging
 from ai_news_platform.pipeline.runner import IngestSummary, PipelineRunner
 from ai_news_platform.settings.loader import load_settings
+from ai_news_platform.llm.usage_stats import format_usd, usd_to_cents
 
 
 def main() -> None:
@@ -27,6 +28,36 @@ def main() -> None:
         action="append",
         dest="domains",
         help="Domain id(s) to ingest (repeatable). If omitted, ingests all configured domains.",
+    )
+
+    publish_worker = sub.add_parser("publish-worker", help="Publish READY articles to Telegram in a worker loop")
+    publish_worker.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/settings.example.yaml"),
+        help="Path to YAML configuration file",
+    )
+    publish_worker.add_argument(
+        "--domain",
+        action="append",
+        dest="domains",
+        required=True,
+        help="Domain id(s) to publish (repeatable).",
+    )
+
+    publish_once = sub.add_parser("publish-once", help="Publish exactly one READY article and exit")
+    publish_once.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/settings.example.yaml"),
+        help="Path to YAML configuration file",
+    )
+    publish_once.add_argument(
+        "--domain",
+        action="append",
+        dest="domains",
+        required=True,
+        help="Domain id(s) to publish (repeatable).",
     )
 
     args = parser.parse_args()
@@ -51,6 +82,16 @@ def main() -> None:
             execution_time_seconds=round(summary.execution_time_seconds, 3),
         )
         _print_summary(summary)
+        return
+
+    if args.command == "publish-once":
+        runner = PipelineRunner(settings)
+        runner.publish_once(domain_ids=args.domains)
+        return
+
+    if args.command == "publish-worker":
+        runner = PipelineRunner(settings)
+        runner.publish_worker(domain_ids=args.domains)
         return
 
     raise SystemExit(2)
@@ -78,3 +119,43 @@ def _print_summary(summary: IngestSummary) -> None:
     print(f"Published         : {summary.published_articles}")
     print(f"Publish failures  : {summary.publication_failures}")
     print(line)
+
+    s = summary.llm_usage_stats
+    if not s or s.attempted_request_count == 0:
+        print("LLM stage not executed")
+        return
+
+    if s.successful_request_count == 0 and s.failed_request_count > 0:
+        print(line)
+        print("LLM Usage Summary")
+        print(line)
+        print(f"Model                  : {s.effective_model()}")
+        print(f"Requests attempted     : {s.attempted_request_count}")
+        print(f"Successful requests    : {s.successful_request_count}")
+        print(f"Failed requests        : {s.failed_request_count}")
+        print(f"Articles attempted     : {s.attempted_article_count}")
+        print(f"Completed responses    : {s.completed_response_count}")
+        print(f"Incomplete responses   : {s.incomplete_response_count}")
+        print("Input tokens           : unavailable")
+        print("Output tokens          : unavailable")
+        print("Total cost USD         : unavailable")
+        return
+
+    total_cost_usd = s.total_cost_usd
+    print(line)
+    print("LLM Usage Summary")
+    print(line)
+    print(f"Model                  : {s.effective_model()}")
+    print(f"Requests attempted     : {s.attempted_request_count}")
+    print(f"Successful requests    : {s.successful_request_count}")
+    print(f"Failed requests        : {s.failed_request_count}")
+    print(f"Articles attempted     : {s.attempted_article_count}")
+    print(f"Articles processed     : {s.article_count}")
+    print(f"Input tokens           : {s.input_tokens}")
+    print(f"Output tokens          : {s.output_tokens}")
+    print(f"Total tokens           : {s.total_tokens}")
+    print(f"Completed responses    : {s.completed_response_count}")
+    print(f"Incomplete responses   : {s.incomplete_response_count}")
+    print(f"Total cost USD         : ${format_usd(total_cost_usd)}")
+    print(f"Total cost cents       : {usd_to_cents(total_cost_usd)}")
+    print(f"Average cost/article   : ${format_usd(s.average_cost_per_article_usd())}")

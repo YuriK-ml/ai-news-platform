@@ -7,6 +7,8 @@ from typing import Any
 
 import structlog
 
+from ai_news_platform.logging.redaction import RedactionFilter, redact_event
+
 
 def configure_logging(*, level: str | None = None, service_name: str = "ai-news-platform") -> None:
     """
@@ -21,11 +23,18 @@ def configure_logging(*, level: str | None = None, service_name: str = "ai-news-
         level=getattr(logging, effective_level, logging.INFO),
     )
 
+    # Ensure secrets never appear in stdlib logs (e.g. httpx "HTTP Request: ..." lines).
+    root_logger = logging.getLogger()
+    root_logger.addFilter(RedactionFilter())
+    for handler in root_logger.handlers:
+        handler.addFilter(RedactionFilter())
+
     structlog.configure(
         processors=[
             structlog.processors.add_log_level,
             structlog.processors.TimeStamper(fmt="iso"),
             _add_static_fields(service_name=service_name),
+            _redact_structlog_event,
             structlog.processors.dict_tracebacks,
             structlog.processors.JSONRenderer(),
         ],
@@ -42,3 +51,7 @@ def _add_static_fields(*, service_name: str):
         return event_dict
 
     return processor
+
+
+def _redact_structlog_event(_: Any, __: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+    return redact_event(event_dict)

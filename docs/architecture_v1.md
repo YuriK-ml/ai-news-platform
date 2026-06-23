@@ -7,16 +7,16 @@ This document defines the authoritative architecture for **ai-news-platform** af
 ## 1) Overall Pipeline
 
 ### Current MVP (implemented)
-RSS → SQLite (dedupe/store) → Telegram → mark as published
+RSS -> SQLite (dedupe/store) -> Telegram -> mark as published
 
 ### Target V1 (next milestone)
-RSS → SQLite (dedupe/store) → **Single LLM Stage** → `REJECTED` or `READY` → Telegram → `PUBLISHED`
+RSS -> SQLite (dedupe/store) -> **Single LLM Stage** -> `REJECTED` or `READY` -> Telegram -> `PUBLISHED`
 
 Principles:
 - Multi-domain and source configuration is **domain-driven** and **config-based**.
 - Articles are **never deleted** from SQLite.
 - Editorial decisions are persisted via a simple lifecycle (`NEW`, `REJECTED`, `READY`, `PUBLISHED`, `ERROR`).
-- LLM editorial work is done in **one prompt** and **one model call per article** (per domain).
+- LLM editorial work is done in **one prompt** and **one model call per article** (per domain). The same stage can also run in batch mode (`llm.batch_size > 1`) without changing statuses or schema.
 
 ---
 
@@ -148,15 +148,15 @@ Rules:
 - YAML references only prompt filenames.
 - Prompt contents are not embedded in YAML.
 - Prompt instructions should use ASCII characters only.
-- For rejection responses, use **reason codes** (not free-form reasons).
+- For rejection responses, the explanation is optional and free-form (no reason codes required).
 
 ---
 
-## 6) LLM Input Contract (Single Article)
+## 6) LLM Input Contract
 
 The pipeline will provide the model with a single article using only fields already stored in SQLite.
 
-Template:
+Template (single-article mode, used when `llm.batch_size = 1`):
 ```
 ### ARTICLE
 
@@ -171,6 +171,24 @@ Content:
 {content_or_dash}
 ```
 
+Template (batch mode, used when `llm.batch_size > 1`):
+```
+### ARTICLE
+
+Article-ID: {article_id}
+Source: {source_name}
+URL: {canonical_url}
+Published: {published_at_or_dash}
+
+Title:
+{title_or_dash}
+
+Content:
+{content_or_dash}
+
+### END ARTICLE
+```
+
 Field mapping:
 - `source_name`: `sources.name` joined by `articles.source_id`
 - `canonical_url`: `articles.canonical_url`
@@ -182,7 +200,7 @@ Field mapping:
 
 ## 7) LLM Output Contract (No JSON)
 
-The model must return **only one** of the following formats.
+Single-article mode output (when `llm.batch_size = 1`):
 
 ### Reject
 ```
@@ -199,6 +217,38 @@ READY_TO_PUBLISH
 Title: <final_title>
 
 Text: <final_text>
+```
+
+Batch mode output (when `llm.batch_size > 1`):
+
+For each input article, the model returns exactly one RESULT block:
+```
+### RESULT
+
+Article-ID: <article_id>
+Status: REJECT
+
+Reason:
+<optional explanation>
+
+### END RESULT
+```
+
+or
+
+```
+### RESULT
+
+Article-ID: <article_id>
+Status: READY_TO_PUBLISH
+
+Title:
+<final_title>
+
+Text:
+<final_text>
+
+### END RESULT
 ```
 
 Requirements:

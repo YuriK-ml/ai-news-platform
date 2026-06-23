@@ -15,7 +15,8 @@ ingestion:
   max_article_age_hours: 24
 
 publishing:
-  max_articles_per_run: 2
+  max_articles_per_run: 1
+  interval_seconds: 180
   default_publisher: "telegram"
   telegram:
     bot_token_env: "TELEGRAM_BOT_TOKEN"
@@ -26,6 +27,19 @@ llm:
   prompts_dir: "prompts"
   default_target_language: "ru"
   max_articles_per_run: 100
+  batch_size: 10
+  reasoning_effort: minimal
+  pricing:
+    models:
+      gpt-5.2:
+        input_price_per_million_usd: 1.75
+        output_price_per_million_usd: 14.00
+      gpt-5.4-mini:
+        input_price_per_million_usd: 0.75
+        output_price_per_million_usd: 4.50
+      gpt-5-mini:
+        input_price_per_million_usd: 0.25
+        output_price_per_million_usd: 2.00
   # LLM provider/model integration intentionally deferred.
 
 domains:

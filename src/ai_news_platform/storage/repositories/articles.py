@@ -181,6 +181,20 @@ class ArticleRepository:
         ).fetchall()
         return rows
 
+    def get_next_ready_unpublished_for_publication(
+        self, conn: sqlite3.Connection, *, domain_ids: list[str]
+    ) -> sqlite3.Row | None:
+        """
+        Select exactly one article ready to publish.
+        """
+
+        rows = self.list_ready_for_publication(conn, domain_ids=domain_ids, limit=50)
+        for row in rows:
+            status = row["publication_status"]
+            if status is None or status == "unpublished":
+                return row
+        return None
+
     def list_unpublished_candidates(
         self, conn: sqlite3.Connection, *, domain_ids: list[str], limit: int
     ) -> list[sqlite3.Row]:
