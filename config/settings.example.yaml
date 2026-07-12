@@ -68,9 +68,59 @@ domains:
   - id: "ai"
     name: "AI"
     telegram:
-      channel_id: "@your_ai_channel"
+      channel_id: "-1004483465338"
     llm:
-      enabled: false
+      enabled: true
       target_language: "ru"
       pipeline_prompt: "ai_pipeline.txt"
-    sources: []
+    sources:
+      - id: "openai_blog"
+        type: "rss"
+        name: "OpenAI Blog"
+        url: "https://openai.com/blog/rss.xml"
+        config:
+          # Минимальные опции для больших RSS-лент (AI-домен):
+          # - не старше 30 дней
+          # - сортировка по убыванию даты
+          # - брать только top 50
+          # - записи без даты отбрасывать
+          rss_max_age_hours: 720
+          rss_sort_by_published_desc: true
+          rss_max_items: 50
+          rss_drop_if_no_date: true
+
+      # - id: "anthropic_news"
+      #   type: "rss"
+      #   name: "Anthropic News"
+      #   url: "https://www.anthropic.com/news/rss.xml"
+      #   config:
+      #     rss_max_age_hours: 720
+      #     rss_sort_by_published_desc: true
+      #     rss_max_items: 50
+      #     rss_drop_if_no_date: true
+      #
+      # В текущем виде URL возвращает 404 Not Found, поэтому источник временно отключён.
+
+      - id: "venturebeat_ai"
+        type: "rss"
+        name: "VentureBeat AI"
+        url: "https://venturebeat.com/category/ai/feed/"
+        config:
+          rss_max_age_hours: 720
+          rss_sort_by_published_desc: true
+          rss_max_items: 50
+          # У VentureBeat периодически встречаются записи без даты или отдаётся нестандартный ответ,
+          # поэтому не отбрасываем entry без даты (иначе часто получаем 0 items).
+          rss_drop_if_no_date: false
+          # Browser-like UA: помогает избежать пустых/заглушечных ответов.
+          user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+
+      - id: "hn_ai"
+        type: "rss"
+        name: "Hacker News AI"
+        url: "https://hnrss.org/newest?q=AI"
+        config:
+          rss_max_age_hours: 720
+          rss_sort_by_published_desc: true
+          rss_max_items: 50
+          rss_drop_if_no_date: true

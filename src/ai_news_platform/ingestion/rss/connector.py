@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 import feedparser
@@ -30,6 +31,13 @@ class RssConnector:
             )
         }
 
+        # Опциональные RSS-настройки для "тяжёлых" лент (например, AI-домен).
+        # Если поля не заданы, поведение остаётся прежним: берём все entry в порядке RSS.
+        rss_max_age_hours = _as_int(source.config.get("rss_max_age_hours"))
+        rss_sort_by_published_desc = _as_bool(source.config.get("rss_sort_by_published_desc"))
+        rss_max_items = _as_int(source.config.get("rss_max_items"))
+        rss_drop_if_no_date = _as_bool(source.config.get("rss_drop_if_no_date"))
+
         with httpx.Client(timeout=timeout_seconds, headers=headers, follow_redirects=True) as client:
             response = client.get(source.url)
             response.raise_for_status()
@@ -39,15 +47,38 @@ class RssConnector:
             # feedparser bozo means parse issues; still may have entries
             logger.warning("rss_parse_warning", bozo_exception=str(getattr(parsed, "bozo_exception", "")))
 
-        items: list[RawIngestedItem] = []
+        # Конвертируем entry в JSON-able dict и при необходимости фильтруем/сортируем/ограничиваем.
+        candidates: list[tuple[dict[str, Any], datetime | None]] = []
+        now_utc = datetime.now(timezone.utc)
+        threshold = None
+        if rss_max_age_hours is not None and rss_max_age_hours > 0:
+            threshold = now_utc - timedelta(hours=rss_max_age_hours)
+
         for entry in parsed.entries or []:
             entry_dict = _entry_to_jsonable(entry)
-            external_id = (
-                entry_dict.get("id")
-                or entry_dict.get("guid")
-                or entry_dict.get("link")
-                or entry_dict.get("title")
-            )
+            published_dt = _extract_entry_datetime(entry_dict)
+
+            if published_dt is None and rss_drop_if_no_date:
+                continue
+            if threshold is not None and published_dt is not None and published_dt < threshold:
+                continue
+
+            candidates.append((entry_dict, published_dt))
+
+        if rss_sort_by_published_desc:
+            # Без даты отправляем в конец списка.
+            candidates.sort(key=lambda x: x[1] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+
+        if rss_max_items is not None:
+            # Если лимит задан — применяем после фильтрации и сортировки.
+            if rss_max_items <= 0:
+                candidates = []
+            else:
+                candidates = candidates[:rss_max_items]
+
+        items: list[RawIngestedItem] = []
+        for entry_dict, _dt in candidates:
+            external_id = entry_dict.get("id") or entry_dict.get("guid") or entry_dict.get("link") or entry_dict.get("title")
             items.append(RawIngestedItem(source=source, external_id=external_id, payload=entry_dict))
 
         logger.info("rss_fetch_success", item_count=len(items))
@@ -77,3 +108,62 @@ def _time_struct_to_iso(ts: Any) -> str:
         return dt.isoformat()
     except Exception:
         return str(ts)
+
+
+def _extract_entry_datetime(entry: dict[str, Any]) -> datetime | None:
+    """
+    Извлечь дату публикации для фильтра/сортировки.
+    По требованиям: published_parsed, fallback updated_parsed.
+    """
+
+    value = entry.get("published_parsed") or entry.get("published") or entry.get("updated_parsed") or entry.get("updated")
+    if not value:
+        return None
+    dt = _parse_datetime(value)
+    if dt is None:
+        return None
+    return dt.astimezone(timezone.utc) if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _parse_datetime(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, (list, tuple)) and len(value) >= 6:
+        try:
+            return datetime(*value[:6], tzinfo=timezone.utc)
+        except Exception:
+            return None
+    if isinstance(value, str):
+        s = value.strip()
+        if not s:
+            return None
+        # ISO8601
+        try:
+            return datetime.fromisoformat(s.replace("Z", "+00:00"))
+        except Exception:
+            pass
+        # RFC2822 / другие форматы
+        try:
+            return parsedate_to_datetime(s)
+        except Exception:
+            return None
+    return None
+
+
+def _as_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except Exception:
+        return None
+
+
+def _as_bool(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)

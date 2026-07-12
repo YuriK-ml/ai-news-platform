@@ -90,6 +90,23 @@ TELEGRAM_BOT_TOKEN=
 DATABASE_PATH=./data/app.sqlite3
 ```
 
+RSS source-level options (optional, in `domains[].sources[].config`):
+
+- `rss_max_age_hours`: отбрасывать статьи старше N часов (по `published_parsed`, fallback `updated_parsed`)
+- `rss_sort_by_published_desc`: сортировать по дате публикации (сначала самые свежие)
+- `rss_max_items`: брать только top N после фильтрации и сортировки
+- `rss_drop_if_no_date`: отбрасывать записи без даты
+
+Пример для AI-источников (30 дней, top 50):
+
+```yaml
+config:
+  rss_max_age_hours: 720
+  rss_sort_by_published_desc: true
+  rss_max_items: 50
+  rss_drop_if_no_date: true
+```
+
 Optional: configure token pricing in `config/settings.example.yaml` under `llm.pricing.models`:
 
 ```yaml
