@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any
@@ -24,6 +25,9 @@ class RssConnector:
         logger.info("rss_fetch_start", url=source.url)
 
         timeout_seconds = float(source.config.get("timeout_seconds", 30))
+        retry_attempts = _as_int(source.config.get("retry_attempts"))
+        if retry_attempts is None or retry_attempts < 1:
+            retry_attempts = 1
         headers = {
             "User-Agent": source.config.get(
                 "user_agent",
@@ -38,9 +42,34 @@ class RssConnector:
         rss_max_items = _as_int(source.config.get("rss_max_items"))
         rss_drop_if_no_date = _as_bool(source.config.get("rss_drop_if_no_date"))
 
-        with httpx.Client(timeout=timeout_seconds, headers=headers, follow_redirects=True) as client:
-            response = client.get(source.url)
-            response.raise_for_status()
+        last_exc: Exception | None = None
+        for attempt in range(1, retry_attempts + 1):
+            try:
+                with httpx.Client(timeout=timeout_seconds, headers=headers, follow_redirects=True) as client:
+                    response = client.get(source.url)
+                    response.raise_for_status()
+                last_exc = None
+                break
+            except (
+                httpx.ConnectTimeout,
+                httpx.ReadTimeout,
+                httpx.ConnectError,
+                httpx.RemoteProtocolError,
+            ) as exc:
+                last_exc = exc
+                logger.warning(
+                    "rss_fetch_attempt_failed",
+                    attempt=attempt,
+                    retry_attempts=retry_attempts,
+                    error=str(exc),
+                )
+                if attempt < retry_attempts:
+                    time.sleep(2)
+                    continue
+                break
+
+        if last_exc is not None:
+            raise last_exc
 
         parsed = feedparser.parse(response.text)
         if getattr(parsed, "bozo", 0):

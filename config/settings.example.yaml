@@ -56,14 +56,23 @@ domains:
         type: "rss"
         name: "BBC Sport Football"
         url: "https://feeds.bbci.co.uk/sport/football/rss.xml"
+        config:
+          timeout_seconds: 60
+          retry_attempts: 3
       - id: "espn_soccer"
         type: "rss"
         name: "ESPN Soccer"
         url: "https://www.espn.com/espn/rss/soccer/news"
+        config:
+          timeout_seconds: 60
+          retry_attempts: 3
       - id: "sky_sports_football"
         type: "rss"
         name: "Sky Sports Football"
         url: "https://www.skysports.com/rss/12040"
+        config:
+          timeout_seconds: 60
+          retry_attempts: 3
 
   - id: "ai"
     name: "AI"
@@ -88,6 +97,8 @@ domains:
           rss_sort_by_published_desc: true
           rss_max_items: 50
           rss_drop_if_no_date: true
+          timeout_seconds: 60
+          retry_attempts: 3
 
       # - id: "anthropic_news"
       #   type: "rss"
@@ -106,7 +117,7 @@ domains:
         name: "VentureBeat AI"
         url: "https://venturebeat.com/category/ai/feed/"
         config:
-          rss_max_age_hours: 720
+          rss_max_age_hours: 1440
           rss_sort_by_published_desc: true
           rss_max_items: 50
           # У VentureBeat периодически встречаются записи без даты или отдаётся нестандартный ответ,
@@ -114,6 +125,8 @@ domains:
           rss_drop_if_no_date: false
           # Browser-like UA: помогает избежать пустых/заглушечных ответов.
           user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+          timeout_seconds: 60
+          retry_attempts: 3
 
       - id: "hn_ai"
         type: "rss"
@@ -124,3 +137,5 @@ domains:
           rss_sort_by_published_desc: true
           rss_max_items: 50
           rss_drop_if_no_date: true
+          timeout_seconds: 60
+          retry_attempts: 3
