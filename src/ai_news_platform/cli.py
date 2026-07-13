@@ -159,3 +159,7 @@ def _print_summary(summary: IngestSummary) -> None:
     print(f"Total cost USD         : ${format_usd(total_cost_usd)}")
     print(f"Total cost cents       : {usd_to_cents(total_cost_usd)}")
     print(f"Average cost/article   : ${format_usd(s.average_cost_per_article_usd())}")
+
+
+if __name__ == "__main__":
+    main()
