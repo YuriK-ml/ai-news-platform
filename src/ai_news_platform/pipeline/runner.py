@@ -627,6 +627,25 @@ class PipelineRunner:
                 ),
             )
             return True
+        except (
+            httpx.ConnectError,
+            httpx.ConnectTimeout,
+            httpx.ReadTimeout,
+            httpx.RemoteProtocolError,
+        ) as exc:
+            # Временная сетевая ошибка: не переводим статью в ERROR/failed,
+            # оставляем READY + unpublished, чтобы worker повторил попытку в следующем цикле.
+            self.articles_repo.mark_publish_retryable(conn, article_id=article.id, error=str(exc))
+            self.articles_repo.record_last_error(conn, article_id=article.id, stage="PUBLISH", message=str(exc))
+            self.logger.warning(
+                "publish_retryable_error",
+                domain_id=domain_id,
+                article_id=article.id,
+                source_id=article.source_id,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            return False
         except Exception as exc:
             self.articles_repo.mark_error(conn, article_id=article.id, stage="PUBLISH", message=str(exc))
             self.articles_repo.mark_publish_failed(conn, article_id=article.id, error=str(exc))
@@ -715,6 +734,23 @@ class PipelineRunner:
                     ),
                 )
                 published += 1
+            except (
+                httpx.ConnectError,
+                httpx.ConnectTimeout,
+                httpx.ReadTimeout,
+                httpx.RemoteProtocolError,
+            ) as exc:
+                failures += 1
+                self.articles_repo.mark_publish_retryable(conn, article_id=article.id, error=str(exc))
+                self.articles_repo.record_last_error(conn, article_id=article.id, stage="PUBLISH", message=str(exc))
+                self.logger.warning(
+                    "publish_retryable_error",
+                    domain_id=domain_id,
+                    article_id=article.id,
+                    source_id=article.source_id,
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
             except Exception as exc:
                 failures += 1
                 self.articles_repo.mark_publish_failed(conn, article_id=article.id, error=str(exc))

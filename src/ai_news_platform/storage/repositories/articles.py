@@ -330,6 +330,25 @@ class ArticleRepository:
             (error, now, article_id),
         )
 
+    def mark_publish_retryable(self, conn: sqlite3.Connection, *, article_id: str, error: str) -> None:
+        """
+        Retryable publish error (e.g. transient network issues):
+        - keep article READY
+        - keep/return publication_status as unpublished so worker retries later
+        """
+
+        now = utc_now_iso()
+        conn.execute(
+            """
+            UPDATE articles SET
+              publication_status='unpublished',
+              publication_error=?,
+              updated_at=?
+            WHERE id=?
+            """,
+            (error, now, article_id),
+        )
+
     def mark_published(
         self,
         conn: sqlite3.Connection,
