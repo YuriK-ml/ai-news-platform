@@ -59,17 +59,32 @@ domains:
         config:
           timeout_seconds: 60
           retry_attempts: 3
-      - id: "espn_soccer"
-        type: "rss"
-        name: "ESPN Soccer"
-        url: "https://www.espn.com/espn/rss/soccer/news"
-        config:
-          timeout_seconds: 60
-          retry_attempts: 3
+      # - id: "espn_soccer"
+      #   type: "rss"
+      #   name: "ESPN Soccer"
+      #   url: "https://www.espn.com/espn/rss/soccer/news"
+      #   config:
+      #     timeout_seconds: 60
+      #     retry_attempts: 3
+      # Временно отключено: ESPN стабильно отвечает HTTP 202 + пустой body из-за AWS WAF challenge.
       - id: "sky_sports_football"
         type: "rss"
         name: "Sky Sports Football"
         url: "https://www.skysports.com/rss/12040"
+        config:
+          timeout_seconds: 60
+          retry_attempts: 3
+      - id: "bbc_champions_league"
+        type: "rss"
+        name: "BBC Champions League"
+        url: "https://feeds.bbci.co.uk/sport/football/champions-league/rss.xml"
+        config:
+          timeout_seconds: 60
+          retry_attempts: 3
+      - id: "marca_laliga"
+        type: "rss"
+        name: "MARCA La Liga"
+        url: "https://e00-marca.uecdn.es/rss/futbol/primera-division.xml"
         config:
           timeout_seconds: 60
           retry_attempts: 3
